@@ -1,0 +1,22 @@
+flowchart TD
+    A([Start]) --> B[Load sample weighted graph]
+    B --> C[Show menu]
+    C --> D{Choice?}
+    D -->|Display| E[Print adjacency list]
+    D -->|Route| F[Read source and destination]
+    F --> G[Initialize distances and min-priority queue]
+    G --> H[Extract minimum-distance vertex]
+    H --> I[Relax adjacent road edges]
+    I --> J{Destination finalized or queue empty?}
+    J -->|No| H
+    J -->|Yes| K{Destination reachable?}
+    K -->|Yes| L[Trace parent links and print route]
+    K -->|No| M[Print no route]
+    D -->|Update traffic| N[Validate and update road weight]
+    D -->|BFS| O[Traverse reachable vertices with queue]
+    D -->|Exit| P([End])
+    E --> C
+    L --> C
+    M --> C
+    N --> C
+    O --> C

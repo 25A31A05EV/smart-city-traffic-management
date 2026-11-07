@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart City Traffic Management</title>
+<style>
+:root{--ink:#14243a;--muted:#61738b;--line:#dce5ef;--bg:#f3f7fb;--accent:#1769aa;--good:#147d58}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#102b46;color:white;padding:26px max(22px,calc((100% - 1050px)/2))}
+header h1{margin:0 0 7px;font-size:clamp(23px,4vw,34px)}header p{margin:0;color:#c6d7e8}
+main{max-width:1050px;margin:25px auto;padding:0 18px;display:grid;grid-template-columns: minmax(270px, .85fr) 1.4fr;gap:18px}
+.card{background:white;border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 5px 20px #183b5b0a}
+h2{font-size:18px;margin:0 0 15px}label{display:block;font-weight:650;font-size:13px;margin:13px 0 6px}
+select,input,button{width:100%;padding:11px 12px;border:1px solid #cbd7e3;border-radius:8px;font-size:14px;background:white;color:var(--ink)}
+button{background:var(--accent);color:white;border:0;font-weight:700;cursor:pointer;margin-top:14px}button.secondary{background:#e8f1f8;color:#174c77}
+.result{margin-top:16px;background:#eef7ff;border:1px solid #c9e2f7;border-radius:10px;padding:14px;min-height:75px}
+.metric{font-size:26px;font-weight:800;color:var(--good)}.muted{color:var(--muted);font-size:13px}
+.graph{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.node{border:1px solid var(--line);border-radius:9px;padding:10px;text-align:center;font-size:12px;background:#fbfdff}
+.node strong{display:block;font-size:13px;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:9px;border-bottom:1px solid var(--line)}th{color:var(--muted)}
+.path{font-weight:700;line-height:1.8}
+footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
+@media(max-width:760px){main{grid-template-columns:1fr}.graph{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><h1>Smart City Traffic Management</h1><p>Educational prototype · Weighted graphs · Dijkstra shortest path · BFS connectivity</p></header>
+<main>
+<section class="card">
+<h2>Route planner</h2>
+<label for="source">Starting location</label><select id="source"></select>
+<label for="target">Destination</label><select id="target"></select>
+<button id="routeBtn">Find fastest route</button>
+<div class="result" id="result" aria-live="polite">Choose two locations to calculate a route.</div>
+<h2 style="margin-top:22px">Simulate congestion</h2>
+<label for="road">Road connection</label><select id="road"></select>
+<label for="minutes">New travel time (minutes)</label><input id="minutes" type="number" min="1" max="300" value="20">
+<button class="secondary" id="updateBtn">Update road travel time</button>
+<p class="muted">Changing a road weight recalculates the best route. Values are illustrative, not live traffic.</p>
+</section>
+<section class="card">
+<h2>Road network overview</h2>
+<p class="muted">Each node is a location. Connections show estimated travel time in minutes.</p>
+<div class="graph" id="nodes"></div>
+<h2 style="margin-top:22px">Road connections</h2>
+<table><thead><tr><th>From</th><th>To</th><th>Minutes</th></tr></thead><tbody id="roads"></tbody></table>
+<h2 style="margin-top:22px">Reachability (BFS)</h2>
+<label for="bfsStart">Starting location</label><select id="bfsStart"></select>
+<button class="secondary" id="bfsBtn">Find reachable locations</button>
+<div class="result" id="bfsResult">BFS checks graph connectivity from a selected location.</div>
+</section>
+</main>
+<footer>ADS mini-project prototype · C++ implementation is in src/main.cpp · Demo data only</footer>
+<script>
+const initialEdges=[
+ ["Central Station","City Hospital",8],["Central Station","Tech Park",12],
+ ["Central Station","Market Square",6],["Market Square","City Hospital",5],
+ ["Market Square","University",9],["City Hospital","University",7],
+ ["Tech Park","University",4],["Tech Park","Airport",15],
+ ["University","Airport",10],["Market Square","Bus Terminal",7],
+ ["Bus Terminal","Airport",13]
+];
+let edges=initialEdges.map(e=>[...e]);
+const places=[...new Set(edges.flatMap(e=>e.slice(0,2)))].sort();
+const $=id=>document.getElementById(id);
+function addOptions(select){places.forEach(p=>{let o=document.createElement("option");o.value=p;o.textContent=p;select.appendChild(o)})}
+["source","target","bfsStart"].forEach(id=>addOptions($(id)));
+places.forEach(p=>{let o=document.createElement("option");o.value=p;o.textContent=p;$("road").appendChild(o)});
+function graph(){let g=new Map(places.map(p=>[p,[]]));edges.forEach(([a,b,w])=>{g.get(a).push([b,w]);g.get(b).push([a,w])});return g}
+function dijkstra(start,end){
+ const g=graph(),dist=new Map(places.map(p=>[p,Infinity])),prev=new Map(),open=new Set(places);
+ dist.set(start,0);
+ while(open.size){
+  let u=null;for(const p of open)if(u===null||dist.get(p)<dist.get(u))u=p;
+  if(u===null||dist.get(u)===Infinity)break;open.delete(u);if(u===end)break;
+  for(const [v,w] of g.get(u)){if(!open.has(v))continue;let alt=dist.get(u)+w;if(alt<dist.get(v)){dist.set(v,alt);prev.set(v,u)}}
+ }
+ if(!Number.isFinite(dist.get(end)))return null;
+ let path=[end],cur=end;while(cur!==start){cur=prev.get(cur);if(!cur)return null;path.unshift(cur)}
+ return {path,time:dist.get(end)};
+}
+function render(){
+ $("roads").innerHTML=edges.map(([a,b,w])=>`<tr><td>${a}</td><td>${b}</td><td>${w} min</td></tr>`).join("");
+ $("nodes").innerHTML=places.map(p=>`<div class="node"><strong>${p}</strong><span class="muted">${graph().get(p).length} road links</span></div>`).join("");
+ $("road").innerHTML="";edges.forEach(([a,b])=>{let o=document.createElement("option");o.value=a+"|"+b;o.textContent=a+" ↔ "+b;$("road").appendChild(o)});
+}
+$("routeBtn").onclick=()=>{
+ const r=dijkstra($("source").value,$("target").value);
+ $("result").innerHTML=r?`<div class="muted">FASTEST ESTIMATED ROUTE</div><div class="path">${r.path.join(" → ")}</div><div class="metric">${r.time} min</div>`:"No route found.";
+};
+$("updateBtn").onclick=()=>{
+ const [a,b]=$("road").value.split("|"),w=Number($("minutes").value);
+ if(!Number.isInteger(w)||w<=0){alert("Enter a positive whole number of minutes.");return}
+ const e=edges.find(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a));e[2]=w;render();
+ $("result").textContent=`Updated ${a} ↔ ${b} to ${w} minutes. Find the route again to see the impact.`;
+};
+$("bfsBtn").onclick=()=>{
+ const g=graph(),start=$("bfsStart").value,seen=new Set([start]),q=[start],order=[];
+ while(q.length){let u=q.shift();order.push(u);for(const [v] of g.get(u))if(!seen.has(v)){seen.add(v);q.push(v)}}
+ $("bfsResult").innerHTML=`<strong>${order.length} reachable locations</strong><p>${order.join(" → ")}</p>`;
+};
+render();
+</script>
+</body></html>
